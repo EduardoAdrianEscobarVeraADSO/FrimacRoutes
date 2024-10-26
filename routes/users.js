@@ -1,3 +1,4 @@
+// Importa los módulos necesarios
 const express = require('express');
 const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
@@ -5,6 +6,7 @@ const User = require('../models/User');
 const authenticate = require('../middleware/auth');
 const authorizeAdmin = require('../middleware/authorizeAdmin');
 
+// Crea un nuevo enrutador
 const router = express.Router();
 
 // Crear un nuevo usuario (solo administradores)
@@ -12,16 +14,16 @@ router.post('/', authenticate, authorizeAdmin, async (req, res) => {
   try {
     const { email, password, role } = req.body;
 
-    // Verificar si el usuario ya existe
+    // Verifica si el usuario ya existe
     const existingUser = await User.findOne({ where: { email } });
     if (existingUser) {
       return res.status(400).json({ message: 'El usuario ya existe.' });
     }
 
-    // Hashear la contraseña
+    // Hashea la contraseña
     const hashedPassword = await bcrypt.hash(password, 10);
     
-    // Crear el usuario
+    // Crea el nuevo usuario
     const user = await User.create({ email, password: hashedPassword, role });
     res.status(201).json(user);
   } catch (error) {
@@ -62,7 +64,7 @@ router.put('/:id', authenticate, async (req, res) => {
       return res.status(404).json({ message: 'Usuario no encontrado' });
     }
 
-    // Solo permite al usuario actualizar su propia información o a un administrador
+    // Solo permite que el usuario actualice su propia información o que un administrador lo haga
     if (req.user.id !== userToUpdate.id && req.user.role !== 'admin') {
       return res.status(403).json({ message: 'Acceso denegado.' });
     }
@@ -84,47 +86,46 @@ router.put('/:id', authenticate, async (req, res) => {
 
 // Deshabilitar un usuario (solo administradores)
 router.patch('/:id/disable', authenticate, authorizeAdmin, async (req, res) => {
-    try {
-      const user = await User.findByPk(req.params.id);
-      if (!user) {
-        return res.status(404).json({ message: 'Usuario no encontrado' });
-      }
-  
-      // Deshabilitar el usuario
-      user.isActive = false;
-      await user.save();
-  
-      res.json({ message: 'Usuario deshabilitado correctamente.' });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+  try {
+    const user = await User.findByPk(req.params.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
     }
-  });
-  
+
+    // Deshabilitar el usuario
+    user.isActive = false;
+    await user.save();
+
+    res.json({ message: 'Usuario deshabilitado correctamente.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Iniciar sesión
 router.post('/login', async (req, res) => {
-    const { email, password } = req.body;
-  
-    try {
-      // Verificar el usuario
-      const user = await User.findOne({ where: { email, isActive: true } });
-      if (!user) {
-        return res.status(400).json({ message: 'Credenciales incorrectas o usuario deshabilitado.' });
-      }
-  
-      // Verificar la contraseña
-      const isMatch = await bcrypt.compare(password, user.password);
-      if (!isMatch) {
-        return res.status(400).json({ message: 'Credenciales incorrectas.' });
-      }
-  
-      // Crear y firmar el token
-      const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
-      res.json({ token });
-    } catch (error) {
-      res.status(500).json({ error: error.message });
+  const { email, password } = req.body;
+
+  try {
+    // Verificar el usuario
+    const user = await User.findOne({ where: { email, isActive: true } });
+    if (!user) {
+      return res.status(400).json({ message: 'Credenciales incorrectas o usuario deshabilitado.' });
     }
-  });
+
+    // Verificar la contraseña
+    const isMatch = await bcrypt.compare(password, user.password);
+    if (!isMatch) {
+      return res.status(400).json({ message: 'Credenciales incorrectas.' });
+    }
+
+    // Crear y firmar el token
+    const token = jwt.sign({ id: user.id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    res.json({ token });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
 
 // Actualizar la propia información del usuario (solo el propio usuario)
 router.put('/me', authenticate, async (req, res) => {
@@ -144,4 +145,5 @@ router.put('/me', authenticate, async (req, res) => {
   }
 });
 
+// Exporta el enrutador para su uso en otros módulos de la aplicación
 module.exports = router;
